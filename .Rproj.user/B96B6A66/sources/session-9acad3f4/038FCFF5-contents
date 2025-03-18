@@ -188,9 +188,9 @@ base_de_donnees <- dbConnect(RSQLite::SQLite(), "base_observations.sqlite")
 #Fermer la connexion après utilisation
 dbDisconnect(base_de_donnees)
 
-#Bonsoir
+#Bonsoir                                                                         #AJOUTER LE PROF EN COLLABORATEUR SUR GITHUB POUR LA REMISE *********************************
 
-
+ #token = Dinosaur
 
 
 
