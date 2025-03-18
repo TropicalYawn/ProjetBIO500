@@ -1,0 +1,199 @@
+#Auteur : Xavier Giguère gigx1901
+#Date : 8 mars 2025
+#Les autres scripts sont dans le dossier pour consultation
+
+#Il y aura deux data frame, un pour les observations et un pour la taxonomie.
+
+#Charger les librairies nécessaires 
+library(RSQLite)
+
+
+# 1. Vérifier que toutes les colonnes ont les mêmes noms dans tous les fichiers d'observations, puis combiner tous les fichiers csv d'observations en un data frame pour faire les tests
+
+# Liste des colonnes attendues
+colonnes_attendues <- c("observed_scientific_name", "year_obs", "day_obs", "time_obs", "dwc_event_date", "obs_variable", "obs_unit", "obs_value", "lat", "lon", "original_source", "creator", "title", "publisher", "intellectual_rights", "license", "owner")
+
+# Spécifier le sous-dossier contenant les fichiers CSV
+csv_directory <- "lepidopteres"  
+
+# Liste de tous les fichiers CSV dans le sous-dossier
+fichiers <- list.files(path = csv_directory, pattern = "\\.csv$", full.names = TRUE)
+
+# Exclure taxonomie.csv de la liste des fichiers à vérifier, car ce ne sont pas des observations
+fichier_exclu <- file.path(csv_directory, "taxonomie.csv")
+fichiers_observations <- setdiff(fichiers, fichier_exclu)
+
+# Vérifier les colonnes de chaque fichier
+for (fichier in fichiers_observations) {
+  
+  # Lire le fichier CSV
+  df_observations <- read.csv(fichier)
+  
+  # Vérifier les noms de colonnes
+  colnames_df_observations <- colnames(df_observations)
+  
+  # Comparer avec les colonnes attendues
+  if (!all(colnames_df_observations %in% colonnes_attendues) || length(colnames_df_observations) != length(colonnes_attendues)) {
+    # Arrêter l'exécution et afficher un message
+    stop(paste("Le fichier", fichier, "a des colonnes incorrectes. Exécution arrêtée.")) #Le fichier de 1883 a la colonne title écrite en français, à modifier si nouvelles données de lépidoptères sont utilisées
+  }
+}
+
+# Lire et combiner tous les fichiers CSV après avoir validé les colonnes
+fichiers_liste <- lapply(fichiers_observations, read.csv)  # Lire chaque fichier CSV dans une liste
+df_observations <- do.call(rbind, fichiers_liste)  # Combiner tous les data frames en un seul
+
+
+
+#Obtenir les fonctions des script des fonctions
+source("fonction_verification_colonnes.R")
+source("verification_pattern.R")
+source("fonction_verification_numerique_NA.R")
+source("fonction_verification_NA.R")
+
+
+
+#2. Effectuer les tests pour le data frame des observations combinées
+
+#Pour la colonne observed_scientific_name
+verifier_nulle_NA_texte(df_observations$observed_scientific_name) #Vérifier si une valeur est nulle et si oui mettre un NA
+
+#Pour la colonne year_obs
+remplacer_non_numeriques_par_NA(df_observations$year_obs) #Remplacer tout ce qui n'est pas numérique par des NA.
+df_observations$year_obs <- as.integer(df_observations$year_obs) #S'assurer que les données de la colonne sont toutes de type integer ou NA
+
+#Pour la colonne day_obs
+remplacer_non_numeriques_par_NA(df_observations$day_obs) #Remplacer tout ce qui n'est pas numérique par des NA
+df_observations$day_obs <- as.integer(df_observations$day_obs) #S'assurer que les données de la colonne sont toutes de type integer ou NA
+
+#Pour la colonne time_obs 
+verifier_format_horaire(df_observations$time_obs) #Vérifier si les valeurs de la colonne suivent le pattern attendu du format horaire
+df_observations$time_obs <- as.character(df_observations$time_obs) #S'assurer que les données de la colonne sont toutes de type character ou NA
+
+#Pour la colonne dwc_event_date
+remplacer_cases_vides_par_NA(df_observations$dwc_event_date) #Rempalcer les cases vides de la colonne par des NA
+df_observations$dwc_event_date <- as.character(df_observations$dwc_event_date) #S'assurer que les données de la colonne sont toutes de type character ou NA
+
+#Pour la colonne obs_variable
+remplacer_cases_vides_par_NA(df_observations$obs_variable)  #Rempalcer les cases vides de la colonne par des NA
+df_observations$obs_variable <- as.character(df_observations$obs_variable) #S'assurer que les données de la colonne sont toutes de type character ou NA
+
+#Pour la colonne obs_unit
+remplacer_cases_vides_par_NA((df_observations$obs_unit))  #Rempalcer les cases vides de la colonne par des NA
+if (all(is.na(df_observations$obs_unit))) {  #Vérifier qu'il y a bel et bien seulement des NA dans cette colonne
+df_observations <- df_observations[, !names(df_observations) %in% "obs_unit"] #Supprimer la colonne obs_unit si toutes les valeurs sont NA
+}
+
+#Pour la colonne obs_value
+remplacer_cases_vides_par_NA(df_observations$obs_value)  #Rempalcer les cases vides de la colonne par des NA
+df_observations$obs_value <- as.integer(df_observations$obs_value)#S'assurer que les données de la colonne sont toutes de type integer ou NA
+
+#Pour la colonne lat
+remplacer_non_numeriques_par_NA(df_observations$lat) #Remplacer tout ce qui n'est pas numérique par des NA
+df_observations$lat <- as.numeric(df_observations$lat)#S'assurer que les données de la colonne sont toutes de type numeric ou NA
+
+#Pour la colonne lon
+remplacer_non_numeriques_par_NA(df_observations$lon) #Remplacer tout ce qui n'est pas numérique par des NA
+df_observations$lon <- as.numeric(df_observations$lon)#S'assurer que les données de la colonne sont toutes de type numeric ou NA
+
+#Pour la colonne original_source
+remplacer_cases_vides_par_NA(df_observations$original_source)  #Rempalcer les cases vides de la colonne par des NA
+df_observations$original_source <- as.character(df_observations$original_source)#S'assurer que les données de la colonne sont toutes de type character ou NA
+
+#Pour la colonne creator
+remplacer_cases_vides_par_NA(df_observations$creator)  #Rempalcer les cases vides de la colonne par des NA
+df_observations$creator <- as.character(df_observations$creator)#S'assurer que les données de la colonne sont toutes de type character ou NA
+
+#Pour la colonne title
+remplacer_cases_vides_par_NA(df_observations$title)  #Rempalcer les cases vides de la colonne par des NA
+df_observations$title <- as.character(df_observations$title)#S'assurer que les données de la colonne sont toutes de type character ou NA
+
+#Pour la colonne publisher 
+remplacer_cases_vides_par_NA(df_observations$publisher)  #Rempalcer les cases vides de la colonne par des NA
+df_observations$publisher <- as.character(df_observations$publisher)#S'assurer que les données de la colonne sont toutes de type character ou NA
+
+#Pour la colonne intellectual_rights
+remplacer_cases_vides_par_NA(df_observations$intellectual_rights)  #Rempalcer les cases vides de la colonne par des NA
+df_observations$intellectual_rights <- as.character(df_observations$intellectual_rights)#S'assurer que les données de la colonne sont toutes de type character ou NA
+
+#Pour la colonne license
+remplacer_cases_vides_par_NA(df_observations$license)  #Rempalcer les cases vides de la colonne par des NA
+df_observations$license <- as.character(df_observations$license)#S'assurer que les données de la colonne sont toutes de type character ou NA
+
+#Pour la colonne owner
+remplacer_cases_vides_par_NA(df_observations$owner)  #Rempalcer les cases vides de la colonne par des NA
+df_observations$owner<- as.character(df_observations$owner) #S'assurer que les données de la colonne sont toutes de type character ou NA
+
+
+
+
+#3. Créer le data frame pour taxonomie et faire les tests des colonnes
+df_taxonomie <- read.csv("lepidopteres/taxonomie.csv") #Lire le fichier
+
+#Pour la colonne observed_scientific_name
+verifier_nulle_NA_texte(df_taxonomie$observed_scientific_name) #Vérifier que la clé primaire a bel et bien une valeur non-nulle a chaque ligne et que c'est du texte
+df_taxonomie$observed_scientific_name <- as.character(df_taxonomie$observed_scientific_name )#S'assurer que les données de la colonne sont de type character
+
+#Pour la colonne valid_scientific_name
+verifier_nulle_NA_texte(df_taxonomie$valid_scientific_name) #Vérifier que le nom scientifique valide n'est pas null ou pas du texte
+df_taxonomie$valid_scientific_name <- as.character(df_taxonomie$valid_scientific_name )#S'assurer que les données de la colonne sont de type character
+
+#Pour la colonne rank
+verifier_nulle_NA_texte((df_taxonomie$rank)) #Vérifier que le rank n'a pas de null ou de valeur qui ne sont pas du texte
+df_taxonomie$rank <- as.character(df_taxonomie$rank )#S'assurer que les données de la colonne sont de type character
+
+#Pour la colonne vernacular_fr
+remplacer_cases_vides_par_NA(df_taxonomie$vernacular_fr) #Remplacer les cases vides de vernacular_fr par des NA 
+df_taxonomie$vernacular_fr <- as.character(df_taxonomie$vernacular_fr)#S'assurer que les données de la colonne sont de type character
+
+#Pour la colonne kingdom
+remplacer_cases_vides_par_NA(df_taxonomie$kingdom) #Remplacer les cases vides de kingdom par des NA
+df_taxonomie$kingdom <- as.character(df_taxonomie$kingdom )#S'assurer que les données de la colonne sont de type character
+
+#Pour la colonne phylum
+verifier_nulle_NA_texte((df_taxonomie$phylum)) #Vérifier que le phylum n'a pas de null ou de valeur qui ne sont pas du texte
+df_taxonomie$phylum <- as.character(df_taxonomie$phylum )#S'assurer que les données de la colonne sont de type character
+
+#Pour la colonne class
+verifier_nulle_NA_texte((df_taxonomie$class)) #Vérifier que la colonne class n'a pas de null ou de valeur qui ne sont pas du texte
+df_taxonomie$class <- as.character(df_taxonomie$class )#S'assurer que les données de la colonne sont de type character
+
+#Pour la colonne order
+verifier_nulle_NA_texte((df_taxonomie$order)) #Vérifier que la colonne order n'a pas de null ou de valeur qui ne sont pas du texte
+df_taxonomie$order <- as.character(df_taxonomie$order )#S'assurer que les données de la colonne sont de type character
+
+#Pour la colonne family
+verifier_nulle_NA_texte((df_taxonomie$family)) #Vérifier que la colonne family n'a pas de null ou de valeur qui ne sont pas du texte
+df_taxonomie$family <- as.character(df_taxonomie$family )#S'assurer que les données de la colonne sont de type character
+
+#Pour la colonne genus
+verifier_nulle_NA_texte((df_taxonomie$genus)) #Vérifier que la colonne genus n'a pas de null ou de valeur qui ne sont pas du texte
+df_taxonomie$genus <- as.character(df_taxonomie$genus )#S'assurer que les données de la colonne sont de type character
+
+#Pour la colonne species
+remplacer_cases_vides_par_NA(df_taxonomie$species) #Remplacer les cases vides par des NA dans la colonne species
+df_taxonomie$species <- as.character(df_taxonomie$species ) #S'assurer que les données de la colonne sont de type character
+
+
+
+
+#4. Charger la base de donnée et les tables SQLite
+
+base_de_donnees <- dbConnect(RSQLite::SQLite(), "base_observations.sqlite")
+
+
+#Futures analyses ici
+
+
+#Fermer la connexion après utilisation
+dbDisconnect(base_de_donnees)
+
+#Bonsoir
+
+
+
+
+
+
+
+
